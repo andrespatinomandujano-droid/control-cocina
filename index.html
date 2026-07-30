@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cocina">
+<meta name="theme-color" content="#16191a">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<title>Control de Cocina</title>
+<style>
+  :root{
+    --bg:#16191a;
+    --panel:#212527;
+    --panel2:#2a2f31;
+    --border:#383e40;
+    --text:#f2f1ec;
+    --muted:#8d9497;
+    --green:#4caf6d;
+    --amber:#e8a33d;
+    --red:#e5484d;
+    --blue:#5aa3c9;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:-apple-system,'Segoe UI',Roboto,sans-serif;overflow:hidden;}
+  .mono{font-family:'SF Mono',SFMono-Regular,Consolas,'Roboto Mono',monospace;}
+  #app{display:flex;flex-direction:column;height:100dvh;}
+
+  header{padding:14px 16px 10px;flex-shrink:0;}
+  header h1{margin:0;font-size:20px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;}
+  header .sub{color:var(--muted);font-size:12px;margin-top:2px;}
+
+  #alertBar{display:none;background:var(--red);color:#fff;font-weight:700;font-size:13px;
+    padding:10px 16px;flex-shrink:0;}
+  #alertBar.show{display:block;}
+
+  main{flex:1;overflow-y:auto;padding:8px 12px 90px;}
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    padding:14px;margin-bottom:10px;}
+  .card h3{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.6px;
+    color:var(--muted);font-weight:700;}
+
+  /* GAS */
+  .tanque{display:flex;align-items:center;gap:14px;padding:10px 4px;border-bottom:1px solid var(--border);}
+  .tanque:last-child{border-bottom:none;}
+  .gauge{width:34px;height:56px;border:2px solid var(--border);border-radius:6px;position:relative;
+    background:var(--panel2);flex-shrink:0;overflow:hidden;}
+  .gauge .fill{position:absolute;bottom:0;left:0;right:0;transition:height .25s;}
+  .tanque .info{flex:1;}
+  .tanque .info .lbl{font-weight:700;font-size:15px;}
+  .tanque .info .fecha{color:var(--muted);font-size:11px;margin-top:2px;}
+  .estado-btn{padding:8px 14px;border-radius:20px;border:none;font-weight:700;font-size:13px;
+    color:#111;min-width:80px;}
+
+  /* generic status colors */
+  .st-lleno{background:var(--green);}
+  .st-medio{background:var(--amber);}
+  .st-bajo{background:#e07a2e;}
+  .st-vacio{background:var(--red);color:#fff;}
+
+  /* TEMP */
+  .equipo-row{display:flex;align-items:center;justify-content:space-between;gap:8px;
+    padding:12px 4px;border-bottom:1px solid var(--border);}
+  .equipo-row:last-child{border-bottom:none;}
+  .equipo-row .nombre{font-weight:700;font-size:15px;}
+  .equipo-row .rango{color:var(--muted);font-size:11px;}
+  .equipo-row .actual{font-size:22px;font-weight:800;}
+  .temp-input-row{display:flex;gap:8px;margin-top:8px;}
+  .temp-input-row input{flex:1;background:var(--panel2);border:1px solid var(--border);
+    border-radius:10px;color:var(--text);font-size:18px;padding:10px;text-align:center;}
+  .temp-input-row button{background:var(--blue);border:none;border-radius:10px;color:#0b1a22;
+    font-weight:800;padding:10px 16px;font-size:15px;}
+  .hist{font-size:12px;color:var(--muted);margin-top:6px;max-height:70px;overflow-y:auto;}
+  .hist div{padding:2px 0;}
+
+  /* STOCK */
+  .cat-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;
+    margin:14px 0 4px;font-weight:700;}
+  .stock-item{display:flex;align-items:center;justify-content:space-between;
+    padding:9px 4px;border-bottom:1px solid var(--border);}
+  .stock-item:last-child{border-bottom:none;}
+  .stock-item .nombre{font-size:14px;}
+  .nivel-btn{padding:6px 12px;border-radius:16px;border:none;font-weight:700;font-size:12px;color:#111;min-width:70px;}
+  .addrow{display:flex;gap:8px;margin-top:10px;}
+  .addrow input{flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:10px;
+    color:var(--text);padding:9px;font-size:14px;}
+  .addrow button{background:var(--panel2);border:1px solid var(--border);border-radius:10px;
+    color:var(--text);padding:9px 14px;font-weight:700;}
+
+  /* PEDIDOS */
+  .pedido{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border);}
+  .pedido:last-child{border-bottom:none;}
+  .pedido .txt{flex:1;font-size:14px;}
+  .pedido .txt.done{text-decoration:line-through;color:var(--muted);}
+  .pedido button.check{width:26px;height:26px;border-radius:50%;border:2px solid var(--border);
+    background:transparent;flex-shrink:0;}
+  .pedido button.check.on{background:var(--green);border-color:var(--green);}
+  .pedido button.del{background:transparent;border:none;color:var(--red);font-size:18px;padding:0 4px;}
+
+  /* NOTAS */
+  #micBtn{width:100%;padding:16px;border-radius:14px;border:none;font-weight:800;font-size:16px;
+    background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;gap:8px;}
+  #micBtn.listening{background:var(--green);}
+  #notaTextFallback{width:100%;margin-top:8px;background:var(--panel2);border:1px solid var(--border);
+    border-radius:10px;color:var(--text);padding:10px;font-size:14px;}
+  .nota{padding:10px;background:var(--panel2);border-radius:10px;margin-top:8px;font-size:14px;}
+  .nota .fecha{color:var(--muted);font-size:11px;margin-bottom:3px;}
+
+  nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--panel);
+    border-top:1px solid var(--border);padding:6px 4px calc(6px + env(safe-area-inset-bottom));}
+  nav button{flex:1;background:none;border:none;color:var(--muted);display:flex;flex-direction:column;
+    align-items:center;gap:2px;padding:6px 0;font-size:10px;font-weight:700;text-transform:uppercase;}
+  nav button.active{color:var(--text);}
+  nav button .ic{font-size:20px;}
+  nav button.alerting{color:var(--red);}
+
+  .empty{color:var(--muted);font-size:13px;text-align:center;padding:16px 0;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Control de Cocina</h1>
+    <div class="sub" id="fechaHoy"></div>
+  </header>
+
+  <div id="alertBar"></div>
+
+  <main>
+    <!-- GAS -->
+    <section class="panel" id="panel-gas">
+      <div class="card">
+        <h3>Tanques de gas</h3>
+        <div id="tanquesList"></div>
+      </div>
+    </section>
+
+    <!-- TEMPERATURAS -->
+    <section class="panel" id="panel-temp">
+      <div class="card">
+        <h3>Equipos</h3>
+        <div id="equiposList"></div>
+      </div>
+    </section>
+
+    <!-- STOCK -->
+    <section class="panel" id="panel-stock">
+      <div class="card">
+        <h3>Inventario</h3>
+        <div id="stockList"></div>
+        <div class="addrow">
+          <input id="nuevoItem" placeholder="Agregar insumo...">
+          <button onclick="agregarItem()">+</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- PEDIDOS -->
+    <section class="panel" id="panel-pedidos">
+      <div class="card">
+        <h3>Pedidos</h3>
+        <div id="pedidosList"></div>
+        <div class="addrow">
+          <input id="nuevoPedido" placeholder="Ej: 2 cajas de camarón">
+          <button onclick="agregarPedido()">+</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- NOTAS -->
+    <section class="panel" id="panel-notas">
+      <div class="card">
+        <h3>Notas rápidas</h3>
+        <button id="micBtn" onclick="toggleMic()">🎤 Mantén para hablar</button>
+        <input id="notaTextFallback" placeholder="O escribe y toca Enter...">
+        <div id="notasList"></div>
+      </div>
+    </section>
+  </main>
+
+  <nav>
+    <button data-p="gas" class="active" onclick="showPanel('gas')"><span class="ic">🛢️</span>Gas</button>
+    <button data-p="temp" onclick="showPanel('temp')"><span class="ic">🌡️</span>Temp</button>
+    <button data-p="stock" onclick="showPanel('stock')"><span class="ic">📦</span>Stock</button>
+    <button data-p="pedidos" onclick="showPanel('pedidos')"><span class="ic">📋</span>Pedidos</button>
+    <button data-p="notas" onclick="showPanel('notas')"><span class="ic">📝</span>Notas</button>
+  </nav>
+</div>
+
+<script>
+/* ---------- utilidades de storage ---------- */
+async function loadKey(key, fallback){
+  try{
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  }catch(err){
+    console.error('Error leyendo', key, err);
+    return fallback;
+  }
+}
+async function saveKey(key, value){
+  try{
+    localStorage.setItem(key, JSON.stringify(value));
+  }catch(err){
+    console.error('Error guardando', key, err);
+  }
+}
+
+/* ---------- estado ---------- */
+const ESTADOS_GAS = ['Lleno','Medio','Bajo','Vacío'];
+const ESTADO_CLASS = {Lleno:'st-lleno',Medio:'st-medio',Bajo:'st-bajo','Vacío':'st-vacio'};
+const ESTADO_HEIGHT = {Lleno:'100%',Medio:'60%',Bajo:'25%','Vacío':'5%'};
+
+let gasData = [
+  {id:1, estado:'Lleno', fecha:''},
+  {id:2, estado:'Lleno', fecha:''},
+  {id:3, estado:'Lleno', fecha:''}
+];
+
+const RANGOS = {
+  'Refri': [1,4],
+  'Congelador': [-18,-15],
+  'Mesa fría': [1,5]
+};
+let tempData = {
+  actual: {'Refri':null,'Congelador':null,'Mesa fría':null},
+  historial: [] // {equipo, valor, hora}
+};
+
+const MENU_STOCK = {
+  'Proteínas': ['Arrachera','Pechuga de pollo','Camarón','Carne molida','Salchicha','Tocino'],
+  'Verduras / frutas': ['Aguacate','Jitomate','Cebolla','Cilantro','Limón','Lechuga romana','Chile jalapeño','Col morada','Pepino','Jitomate cherry','Tomate verde','Chile habanero','Chile serrano'],
+  'Lácteos / abarrotes': ['Queso para nachos','Queso parmesano','Crutones','Mayonesa','Ajo','Mantequilla'],
+  'Panes / harinas': ['Pan de hamburguesa','Pan de hotdog','Pan de caja','Tortillas de maíz','Totopos'],
+  'Congelados': ['Papa a la francesa'],
+  'Producción': ['Aderezo césar','Pico de gallo','Salsa verde','Salsa roja','Col picada','Aderezo de hamburguesa']
+};
+const RENOMBRES_STOCK = {'Tortilla de harina':'Tortillas de maíz'};
+const MOVER_STOCK = {'Aderezo césar':'Producción'};
+
+function migrarStock(data){
+  for(const cat in data){
+    data[cat].forEach(item=>{
+      if(RENOMBRES_STOCK[item.nombre]) item.nombre = RENOMBRES_STOCK[item.nombre];
+    });
+  }
+  // mover items que cambiaron de categoría, conservando su nivel
+  for(const nombre in MOVER_STOCK){
+    const destino = MOVER_STOCK[nombre];
+    for(const cat in data){
+      if(cat===destino) continue;
+      const idx = data[cat].findIndex(item=>item.nombre===nombre);
+      if(idx!==-1){
+        const [item] = data[cat].splice(idx,1);
+        if(!data[destino]) data[destino] = [];
+        if(!data[destino].some(i=>i.nombre===nombre)) data[destino].push(item);
+      }
+    }
+  }
+  for(const cat in MENU_STOCK){
+    if(!data[cat]) data[cat] = [];
+    MENU_STOCK[cat].forEach(nombre=>{
+      const existe = data[cat].some(item=>item.nombre===nombre);
+      if(!existe) data[cat].push({nombre, nivel:'Alto'});
+    });
+  }
+  return data;
+}
+let stockData = null; // {Categoria:[{nombre,nivel}]}
+
+let pedidosData = []; // {id,texto,hecho}
+let notasData = []; // {id,texto,fecha}
+
+const NIVELES = ['Alto','Medio','Bajo','Agotado'];
+
+/* ---------- init ---------- */
+async function init(){
+  document.getElementById('fechaHoy').textContent = new Date().toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'});
+
+  gasData = await loadKey('gas-tanques', gasData);
+  tempData = await loadKey('temperaturas', tempData);
+  const stockLoaded = await loadKey('inventario', null);
+  stockData = migrarStock(stockLoaded || {});
+  await saveKey('inventario', stockData);
+  pedidosData = await loadKey('pedidos', []);
+  notasData = await loadKey('notas', []);
+
+  renderGas(); renderTemp(); renderStock(); renderPedidos(); renderNotas();
+  checkAlertas();
+}
+
+/* ---------- GAS ---------- */
+function renderGas(){
+  const el = document.getElementById('tanquesList');
+  el.innerHTML = '';
+  gasData.forEach((t,i)=>{
+    const row = document.createElement('div');
+    row.className = 'tanque';
+    row.innerHTML = `
+      <div class="gauge"><div class="fill ${ESTADO_CLASS[t.estado]}" style="height:${ESTADO_HEIGHT[t.estado]}"></div></div>
+      <div class="info">
+        <div class="lbl">Tanque ${t.id}</div>
+        <div class="fecha mono">${t.fecha ? 'Actualizado '+t.fecha : 'Sin registro'}</div>
+      </div>
+      <button class="estado-btn ${ESTADO_CLASS[t.estado]}" onclick="cicloGas(${i})">${t.estado}</button>
+    `;
+    el.appendChild(row);
+  });
+}
+function cicloGas(i){
+  const idx = ESTADOS_GAS.indexOf(gasData[i].estado);
+  gasData[i].estado = ESTADOS_GAS[(idx+1)%ESTADOS_GAS.length];
+  gasData[i].fecha = new Date().toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  saveKey('gas-tanques', gasData);
+  renderGas();
+  checkAlertas();
+}
+
+/* ---------- TEMPERATURAS ---------- */
+function renderTemp(){
+  const el = document.getElementById('equiposList');
+  el.innerHTML = '';
+  Object.keys(RANGOS).forEach(eq=>{
+    const [min,max] = RANGOS[eq];
+    const val = tempData.actual[eq];
+    const fuera = val!==null && (val<min || val>max);
+    const hist = tempData.historial.filter(h=>h.equipo===eq).slice(-4).reverse();
+    const div = document.createElement('div');
+    div.innerHTML = `
+      <div class="equipo-row">
+        <div>
+          <div class="nombre">${eq}</div>
+          <div class="rango mono">Rango: ${min}° a ${max}°C</div>
+        </div>
+        <div class="actual mono" style="color:${val===null?'var(--muted)':fuera?'var(--red)':'var(--green)'}">
+          ${val===null?'--':val+'°'}
+        </div>
+      </div>
+      <div class="temp-input-row">
+        <input type="number" step="0.1" inputmode="decimal" placeholder="°C" id="in-${eq}">
+        <button onclick="registrarTemp('${eq}')">Registrar</button>
+      </div>
+      <div class="hist mono">${hist.map(h=>`<div>${h.hora} — ${h.valor}°C</div>`).join('') || ''}</div>
+    `;
+    el.appendChild(div);
+  });
+}
+function registrarTemp(eq){
+  const input = document.getElementById('in-'+eq);
+  const val = parseFloat(input.value);
+  if(isNaN(val)) return;
+  tempData.actual[eq] = val;
+  tempData.historial.push({equipo:eq, valor:val, hora:new Date().toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})});
+  if(tempData.historial.length>200) tempData.historial = tempData.historial.slice(-200);
+  saveKey('temperaturas', tempData);
+  input.value='';
+  renderTemp();
+  checkAlertas();
+}
+
+/* ---------- STOCK ---------- */
+function renderStock(){
+  const el = document.getElementById('stockList');
+  el.innerHTML = '';
+  for(const cat in stockData){
+    const catDiv = document.createElement('div');
+    catDiv.innerHTML = `<div class="cat-title">${cat}</div>`;
+    stockData[cat].forEach((item,i)=>{
+      const row = document.createElement('div');
+      row.className = 'stock-item';
+      const colorClass = item.nivel==='Alto'?'st-lleno':item.nivel==='Medio'?'st-medio':item.nivel==='Bajo'?'st-bajo':'st-vacio';
+      row.innerHTML = `
+        <div class="nombre">${item.nombre}</div>
+        <button class="nivel-btn ${colorClass}" onclick="cicloNivel('${cat}',${i})">${item.nivel}</button>
+      `;
+      catDiv.appendChild(row);
+    });
+    el.appendChild(catDiv);
+  }
+}
+function cicloNivel(cat,i){
+  const idx = NIVELES.indexOf(stockData[cat][i].nivel);
+  stockData[cat][i].nivel = NIVELES[(idx+1)%NIVELES.length];
+  saveKey('inventario', stockData);
+  renderStock();
+}
+function agregarItem(){
+  const input = document.getElementById('nuevoItem');
+  const val = input.value.trim();
+  if(!val) return;
+  if(!stockData['Otros']) stockData['Otros']=[];
+  stockData['Otros'].push({nombre:val, nivel:'Alto'});
+  saveKey('inventario', stockData);
+  input.value='';
+  renderStock();
+}
+
+/* ---------- PEDIDOS ---------- */
+function renderPedidos(){
+  const el = document.getElementById('pedidosList');
+  if(pedidosData.length===0){ el.innerHTML = '<div class="empty">Sin pedidos pendientes</div>'; return; }
+  el.innerHTML = '';
+  pedidosData.forEach((p,i)=>{
+    const row = document.createElement('div');
+    row.className = 'pedido';
+    row.innerHTML = `
+      <button class="check ${p.hecho?'on':''}" onclick="togglePedido(${i})"></button>
+      <div class="txt ${p.hecho?'done':''}">${p.texto}</div>
+      <button class="del" onclick="borrarPedido(${i})">✕</button>
+    `;
+    el.appendChild(row);
+  });
+}
+function agregarPedido(){
+  const input = document.getElementById('nuevoPedido');
+  const val = input.value.trim();
+  if(!val) return;
+  pedidosData.push({texto:val, hecho:false});
+  saveKey('pedidos', pedidosData);
+  input.value='';
+  renderPedidos();
+}
+function togglePedido(i){
+  pedidosData[i].hecho = !pedidosData[i].hecho;
+  saveKey('pedidos', pedidosData);
+  renderPedidos();
+}
+function borrarPedido(i){
+  pedidosData.splice(i,1);
+  saveKey('pedidos', pedidosData);
+  renderPedidos();
+}
+
+/* ---------- NOTAS (voz) ---------- */
+let recognition = null;
+let listening = false;
+function setupSpeech(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ document.getElementById('micBtn').style.display='none'; return; }
+  recognition = new SR();
+  recognition.lang = 'es-MX';
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  recognition.onresult = (e)=>{
+    const texto = e.results[0][0].transcript;
+    guardarNota(texto);
+  };
+  recognition.onend = ()=>{ listening=false; document.getElementById('micBtn').classList.remove('listening'); document.getElementById('micBtn').textContent='🎤 Mantén para hablar'; };
+  recognition.onerror = ()=>{ listening=false; document.getElementById('micBtn').classList.remove('listening'); document.getElementById('micBtn').textContent='🎤 Mantén para hablar'; };
+}
+function toggleMic(){
+  if(!recognition) return;
+  if(listening){ recognition.stop(); return; }
+  try{
+    recognition.start();
+    listening = true;
+    document.getElementById('micBtn').classList.add('listening');
+    document.getElementById('micBtn').textContent = '🔴 Escuchando... toca para detener';
+  }catch(err){ /* ya iniciado */ }
+}
+function guardarNota(texto){
+  notasData.unshift({texto, fecha:new Date().toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})});
+  if(notasData.length>100) notasData = notasData.slice(0,100);
+  saveKey('notas', notasData);
+  renderNotas();
+}
+function renderNotas(){
+  const el = document.getElementById('notasList');
+  el.innerHTML = notasData.map(n=>`<div class="nota"><div class="fecha mono">${n.fecha}</div>${n.texto}</div>`).join('');
+}
+document.getElementById('notaTextFallback').addEventListener('keydown', (e)=>{
+  if(e.key==='Enter'){
+    const val = e.target.value.trim();
+    if(val){ guardarNota(val); e.target.value=''; }
+  }
+});
+
+/* ---------- ALERTAS ---------- */
+function checkAlertas(){
+  const bar = document.getElementById('alertBar');
+  const problemas = [];
+  gasData.forEach(t=>{ if(t.estado==='Bajo'||t.estado==='Vacío') problemas.push(`Tanque ${t.id} de gas: ${t.estado}`); });
+  Object.keys(RANGOS).forEach(eq=>{
+    const val = tempData.actual[eq];
+    const [min,max] = RANGOS[eq];
+    if(val!==null && (val<min||val>max)) problemas.push(`${eq} fuera de rango (${val}°C)`);
+  });
+  if(problemas.length){
+    bar.textContent = '⚠ ' + problemas.join('  •  ');
+    bar.classList.add('show');
+  } else {
+    bar.classList.remove('show');
+  }
+  document.querySelector('nav button[data-p="gas"]').classList.toggle('alerting', gasData.some(t=>t.estado==='Bajo'||t.estado==='Vacío'));
+  document.querySelector('nav button[data-p="temp"]').classList.toggle('alerting', Object.keys(RANGOS).some(eq=>{
+    const val = tempData.actual[eq]; const [min,max]=RANGOS[eq];
+    return val!==null && (val<min||val>max);
+  }));
+}
+
+/* ---------- NAV ---------- */
+function showPanel(name){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`nav button[data-p="${name}"]`).classList.add('active');
+}
+document.getElementById('panel-gas').classList.add('active');
+
+setupSpeech();
+init();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
