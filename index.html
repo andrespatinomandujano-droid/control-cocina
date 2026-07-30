@@ -391,6 +391,7 @@ function cicloNivel(cat,i){
   stockData[cat][i].nivel = NIVELES[(idx+1)%NIVELES.length];
   saveKey('inventario', stockData);
   renderStock();
+  checkAlertas();
 }
 function agregarItem(){
   const input = document.getElementById('nuevoItem');
@@ -483,7 +484,26 @@ document.getElementById('notaTextFallback').addEventListener('keydown', (e)=>{
   }
 });
 
-/* ---------- ALERTAS ---------- */
+/* ---------- NOTIFICACIONES ---------- */
+let alertasActivas = new Set();
+function pedirPermisoNotif(){
+  if('Notification' in window && Notification.permission === 'default'){
+    Notification.requestPermission();
+  }
+}
+function notificar(titulo, cuerpo){
+  if('Notification' in window && Notification.permission === 'granted'){
+    if(navigator.serviceWorker && navigator.serviceWorker.ready){
+      navigator.serviceWorker.ready.then(reg=>{
+        reg.showNotification(titulo, {body:cuerpo, icon:'icon-192.png', vibrate:[200,100,200]});
+      }).catch(()=>{ new Notification(titulo, {body:cuerpo, icon:'icon-192.png'}); });
+    } else {
+      new Notification(titulo, {body:cuerpo, icon:'icon-192.png'});
+    }
+  }
+  if(navigator.vibrate) navigator.vibrate([200,100,200]);
+}
+
 function checkAlertas(){
   const bar = document.getElementById('alertBar');
   const problemas = [];
@@ -493,17 +513,30 @@ function checkAlertas(){
     const [min,max] = RANGOS[eq];
     if(val!==null && (val<min||val>max)) problemas.push(`${eq} fuera de rango (${val}°C)`);
   });
+  for(const cat in stockData){
+    stockData[cat].forEach(item=>{
+      if(item.nivel==='Agotado') problemas.push(`${item.nombre}: Agotado`);
+    });
+  }
   if(problemas.length){
     bar.textContent = '⚠ ' + problemas.join('  •  ');
     bar.classList.add('show');
   } else {
     bar.classList.remove('show');
   }
+  // notificar solo problemas nuevos (que no estaban ya activos)
+  problemas.forEach(p=>{
+    if(!alertasActivas.has(p)) notificar('⚠ Control de Cocina', p);
+  });
+  alertasActivas = new Set(problemas);
+
   document.querySelector('nav button[data-p="gas"]').classList.toggle('alerting', gasData.some(t=>t.estado==='Bajo'||t.estado==='Vacío'));
   document.querySelector('nav button[data-p="temp"]').classList.toggle('alerting', Object.keys(RANGOS).some(eq=>{
     const val = tempData.actual[eq]; const [min,max]=RANGOS[eq];
     return val!==null && (val<min||val>max);
   }));
+  document.querySelector('nav button[data-p="stock"]').classList.toggle('alerting',
+    Object.values(stockData).some(items=>items.some(i=>i.nivel==='Agotado')));
 }
 
 /* ---------- NAV ---------- */
@@ -516,6 +549,7 @@ function showPanel(name){
 document.getElementById('panel-gas').classList.add('active');
 
 setupSpeech();
+pedirPermisoNotif();
 init();
 
 if('serviceWorker' in navigator){
